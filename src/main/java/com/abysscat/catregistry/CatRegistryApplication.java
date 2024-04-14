@@ -10,10 +10,10 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * @Create: 2024/4/14 1:48
  */
 @SpringBootApplication
-public class CatregistryApplication {
+public class CatRegistryApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(CatregistryApplication.class, args);
+		SpringApplication.run(CatRegistryApplication.class, args);
 	}
 
 }
