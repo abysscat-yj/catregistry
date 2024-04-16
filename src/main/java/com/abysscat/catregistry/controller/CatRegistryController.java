@@ -1,6 +1,8 @@
 package com.abysscat.catregistry.controller;
 
+import com.abysscat.catregistry.cluster.Cluster;
 import com.abysscat.catregistry.model.InstanceMeta;
+import com.abysscat.catregistry.model.Server;
 import com.abysscat.catregistry.service.RegistryService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +26,9 @@ public class CatRegistryController {
 
 	@Autowired
 	RegistryService registryService;
+
+	@Autowired
+	Cluster cluster;
 
 	@RequestMapping("/reg")
 	public InstanceMeta register(@RequestParam String service, @RequestBody InstanceMeta instance) {
@@ -65,6 +70,34 @@ public class CatRegistryController {
 	public Map<String, Long> versions(@RequestParam String services) {
 		log.info(" ===> versions {}", services);
 		return registryService.versions(services.split(","));
+	}
+
+	@RequestMapping("/info")
+	public Server info() {
+		log.info(" ===> info: {}", cluster.self());
+		return cluster.self();
+	}
+
+	@RequestMapping("/cluster")
+	public List<Server> cluster()
+	{
+		log.info(" ===> info: {}", cluster.getServers());
+		return cluster.getServers();
+	}
+
+	@RequestMapping("/leader")
+	public Server leader()
+	{
+		log.info(" ===> leader: {}", cluster.leader());
+		return cluster.leader();
+	}
+
+	@RequestMapping("/sl")
+	public Server sl()
+	{
+		cluster.self().setLeader(true);
+		log.info(" ===> leader: {}", cluster.self());
+		return cluster.self();
 	}
 
 }

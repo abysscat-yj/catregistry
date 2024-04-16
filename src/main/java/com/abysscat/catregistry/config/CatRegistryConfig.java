@@ -1,5 +1,6 @@
 package com.abysscat.catregistry.config;
 
+import com.abysscat.catregistry.cluster.Cluster;
 import com.abysscat.catregistry.health.CatHealthChecker;
 import com.abysscat.catregistry.health.HealthChecker;
 import com.abysscat.catregistry.service.CatRegistryService;
@@ -25,6 +26,11 @@ public class CatRegistryConfig {
 	@Bean(initMethod = "start", destroyMethod = "stop")
 	public HealthChecker healthChecker(@Autowired RegistryService registryService) {
 		return new CatHealthChecker(registryService);
+	}
+
+	@Bean(initMethod = "init")
+	public Cluster cluster(@Autowired CatRegistryConfigProperties registryConfigProperties) {
+		return new Cluster(registryConfigProperties);
 	}
 
 }
