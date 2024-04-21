@@ -1,6 +1,7 @@
 package com.abysscat.catregistry.controller;
 
 import com.abysscat.catregistry.cluster.Cluster;
+import com.abysscat.catregistry.cluster.Snapshot;
 import com.abysscat.catregistry.model.InstanceMeta;
 import com.abysscat.catregistry.model.Server;
 import com.abysscat.catregistry.service.RegistryService;
@@ -83,25 +84,27 @@ public class CatRegistryController {
 	}
 
 	@RequestMapping("/cluster")
-	public List<Server> cluster()
-	{
+	public List<Server> cluster() {
 		log.info(" ===> info: {}", cluster.getServers());
 		return cluster.getServers();
 	}
 
 	@RequestMapping("/leader")
-	public Server leader()
-	{
+	public Server leader() {
 		log.info(" ===> leader: {}", cluster.leader());
 		return cluster.leader();
 	}
 
 	@RequestMapping("/sl")
-	public Server sl()
-	{
+	public Server sl() {
 		cluster.self().setLeader(true);
 		log.info(" ===> leader: {}", cluster.self());
 		return cluster.self();
+	}
+
+	@RequestMapping("/snapshot")
+	public Snapshot snapshot() {
+		return registryService.snapshot();
 	}
 
 	private void checkLeader() {

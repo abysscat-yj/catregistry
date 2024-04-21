@@ -1,5 +1,6 @@
 package com.abysscat.catregistry.service;
 
+import com.abysscat.catregistry.cluster.Snapshot;
 import com.abysscat.catregistry.model.InstanceMeta;
 
 import java.util.List;
@@ -24,5 +25,9 @@ public interface RegistryService {
 	Long version(String service);
 
 	Map<String, Long> versions(String... services);
+
+	Snapshot snapshot();
+
+	long restore(Snapshot snapshot);
 
 }

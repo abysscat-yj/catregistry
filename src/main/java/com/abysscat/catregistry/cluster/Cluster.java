@@ -4,6 +4,7 @@ import com.abysscat.catregistry.config.CatRegistryConfigProperties;
 import com.abysscat.catregistry.http.HttpInvoker;
 import com.abysscat.catregistry.model.Server;
 import com.abysscat.catregistry.service.CatRegistryService;
+import com.abysscat.catregistry.service.RegistryService;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Registry cluster.
@@ -32,15 +34,17 @@ public class Cluster {
 	Server MYSELF;
 
 	CatRegistryConfigProperties registryConfigProperties;
+	RegistryService registryService;
 
 	@Getter
 	private final List<Server> servers = new ArrayList<>();
 
 	final ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
-	long timeout = 5_000;
+	private static final long SCHEDULE_INTERVAL = 5_000;
 
-	public Cluster(CatRegistryConfigProperties registryConfigProperties) {
+	public Cluster(CatRegistryConfigProperties registryConfigProperties, RegistryService registryService) {
 		this.registryConfigProperties = registryConfigProperties;
+		this.registryService = registryService;
 	}
 
 	public void init() {
@@ -76,15 +80,38 @@ public class Cluster {
 		// 启动定时任务，处理集群节点状态
 		executor.scheduleAtFixedRate(() -> {
 			try {
-				// 探索集群节点，更新节点列表
+				// 1.探索集群节点，更新节点列表
 				updateServers();
-				// 选主
+				// 2.选主
 				electLeader();
+				// 3.同步主节点数据快照
+				syncLeaderSnapshot();
 			} catch (Exception ex) {
-				ex.printStackTrace();
+				log.error("executor schedule failed. ERROR:", ex);
 			}
-		}, 0, timeout, java.util.concurrent.TimeUnit.MILLISECONDS);
+		}, 0, SCHEDULE_INTERVAL, TimeUnit.MILLISECONDS);
 
+	}
+
+	private void syncLeaderSnapshot() {
+		if (MYSELF.isLeader()) {
+			return;
+		}
+		Server leader = leader();
+		if (leader == null) {
+			throw new RuntimeException("no leader for sync snapshot");
+		}
+		// 如果当前节点版本号小于leader，则同步leader快照
+		if (MYSELF.getVersion() >= leader.getVersion()) {
+			return;
+		}
+		log.debug(" ===>>> sync snapshot from leader: {}", leader);
+		Snapshot leaderSnapshot = HttpInvoker.httpGet(leader().getUrl() + "/snapshot", Snapshot.class);
+		log.debug(" ===>>> sync leaderSnapshot: {}", leaderSnapshot);
+		if (leaderSnapshot == null) {
+			return;
+		}
+		registryService.restore(leaderSnapshot);
 	}
 
 	private void electLeader() {

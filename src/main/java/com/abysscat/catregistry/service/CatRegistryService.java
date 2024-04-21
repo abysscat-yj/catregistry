@@ -1,12 +1,13 @@
 package com.abysscat.catregistry.service;
 
+import com.abysscat.catregistry.cluster.Snapshot;
 import com.abysscat.catregistry.model.InstanceMeta;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,7 +29,7 @@ public class CatRegistryService implements RegistryService {
 	public final static AtomicLong VERSION = new AtomicLong(0);
 
 	@Override
-	public InstanceMeta register(String service, InstanceMeta instance) {
+	public synchronized InstanceMeta register(String service, InstanceMeta instance) {
 		List<InstanceMeta> instanceMetas = REGISTRY.get(service);
 		if (instanceMetas != null && !instanceMetas.isEmpty()) {
 			if (instanceMetas.contains(instance)) {
@@ -46,7 +47,7 @@ public class CatRegistryService implements RegistryService {
 	}
 
 	@Override
-	public InstanceMeta unregister(String service, InstanceMeta instance) {
+	public synchronized InstanceMeta unregister(String service, InstanceMeta instance) {
 		List<InstanceMeta> metas = REGISTRY.get(service);
 		if (metas == null || metas.isEmpty()) {
 			return null;
@@ -65,7 +66,7 @@ public class CatRegistryService implements RegistryService {
 	}
 
 	@Override
-	public long renew(InstanceMeta instance, String... services) {
+	public synchronized long renew(InstanceMeta instance, String... services) {
 		long now = System.currentTimeMillis();
 		for (String service : services) {
 			TIMESTAMPS.put(service + "@" + instance.toUrl(), now);
@@ -82,6 +83,28 @@ public class CatRegistryService implements RegistryService {
 	public Map<String, Long> versions(String... services) {
 		return Arrays.stream(services)
 				.collect(Collectors.toMap(x -> x, VERSIONS::get, (a, b) -> b));
+	}
+
+	@Override
+	public synchronized Snapshot snapshot() {
+		// 加 synchronized 保证原子性
+		LinkedMultiValueMap<String, InstanceMeta> registry = new LinkedMultiValueMap<>();
+		registry.addAll(REGISTRY);
+		Map<String, Long> versions = new HashMap<>(VERSIONS);
+		Map<String, Long> timestamps = new HashMap<>(TIMESTAMPS);
+		return new Snapshot(registry, versions, timestamps, VERSION.get());
+	}
+
+	@Override
+	public synchronized long restore(Snapshot snapshot) {
+		REGISTRY.clear();
+		REGISTRY.addAll(snapshot.getRegistry());
+		VERSIONS.clear();
+		VERSIONS.putAll(snapshot.getVersions());
+		TIMESTAMPS.clear();
+		TIMESTAMPS.putAll(snapshot.getTimestamps());
+		VERSION.set(snapshot.getVersion());
+		return snapshot.getVersion();
 	}
 
 }

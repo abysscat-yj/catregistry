@@ -29,8 +29,9 @@ public class CatRegistryConfig {
 	}
 
 	@Bean(initMethod = "init")
-	public Cluster cluster(@Autowired CatRegistryConfigProperties registryConfigProperties) {
-		return new Cluster(registryConfigProperties);
+	public Cluster cluster(@Autowired CatRegistryConfigProperties registryConfigProperties,
+						   @Autowired RegistryService registryService) {
+		return new Cluster(registryConfigProperties, registryService);
 	}
 
 }
