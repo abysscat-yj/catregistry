@@ -33,12 +33,14 @@ public class CatRegistryController {
 	@RequestMapping("/reg")
 	public InstanceMeta register(@RequestParam String service, @RequestBody InstanceMeta instance) {
 		log.info(" ===> register service: {} @ {}", service, instance);
+		checkLeader();
 		return registryService.register(service, instance);
 	}
 
 	@RequestMapping("/unreg")
 	public InstanceMeta unregister(@RequestParam String service, @RequestBody InstanceMeta instance) {
 		log.info(" ===> unregister service: {} @ {}", service, instance);
+		checkLeader();
 		return registryService.unregister(service, instance);
 	}
 
@@ -51,12 +53,14 @@ public class CatRegistryController {
 	@RequestMapping("/renew")
 	public long renew(@RequestParam String service, @RequestBody InstanceMeta instance) {
 		log.info(" ===> renew {} @ {}", service, instance);
+		checkLeader();
 		return registryService.renew(instance, service);
 	}
 
 	@RequestMapping("/renews")
 	public long renews(@RequestParam String services, @RequestBody InstanceMeta instance) {
 		log.info(" ===> renew {} @ {}", services, instance);
+		checkLeader();
 		return registryService.renew(instance, services.split(","));
 	}
 
@@ -98,6 +102,14 @@ public class CatRegistryController {
 		cluster.self().setLeader(true);
 		log.info(" ===> leader: {}", cluster.self());
 		return cluster.self();
+	}
+
+	private void checkLeader() {
+		if (cluster.self().isLeader()) {
+			return;
+		}
+		String checkLeaderErrorFormat = "current server {%s} is not leader, leader is {%s}";
+		throw new RuntimeException(String.format(checkLeaderErrorFormat, cluster.self().getUrl(), cluster.leader().getUrl()));
 	}
 
 }
