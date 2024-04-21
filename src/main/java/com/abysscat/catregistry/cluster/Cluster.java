@@ -3,6 +3,7 @@ package com.abysscat.catregistry.cluster;
 import com.abysscat.catregistry.config.CatRegistryConfigProperties;
 import com.abysscat.catregistry.http.HttpInvoker;
 import com.abysscat.catregistry.model.Server;
+import com.abysscat.catregistry.service.CatRegistryService;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,7 +14,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.stream.Collectors;
 
 /**
  * Registry cluster.
@@ -57,12 +57,12 @@ public class Cluster {
 
 		for (String url : registryConfigProperties.getServers()) {
 			Server server = new Server();
-			if(url.contains("localhost")) {
+			if (url.contains("localhost")) {
 				url = url.replace("localhost", host);
-			} else if(url.contains("127.0.0.1")) {
+			} else if (url.contains("127.0.0.1")) {
 				url = url.replace("127.0.0.1", host);
 			}
-			if(url.equals(MYSELF.getUrl())) {
+			if (url.equals(MYSELF.getUrl())) {
 				servers.add(MYSELF);
 			} else {
 				server.setUrl(url);
@@ -73,23 +73,26 @@ public class Cluster {
 			}
 		}
 
+		// 启动定时任务，处理集群节点状态
 		executor.scheduleAtFixedRate(() -> {
-					try {
-						updateServers();
-						electLeader();
-					} catch (Exception ex) {
-						ex.printStackTrace();
-					}
-				}, 0, timeout, java.util.concurrent.TimeUnit.MILLISECONDS);
+			try {
+				// 探索集群节点，更新节点列表
+				updateServers();
+				// 选主
+				electLeader();
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+		}, 0, timeout, java.util.concurrent.TimeUnit.MILLISECONDS);
 
 	}
 
 	private void electLeader() {
 		List<Server> leaders = getActiveLeaders();
-		if(leaders.isEmpty()) {
+		if (leaders.isEmpty()) {
 			log.info(" ===>>> no active leader for :{}, electing ...", servers);
 			elect();
-		} else if(leaders.size() > 1) {
+		} else if (leaders.size() > 1) {
 			log.info("===>>> more than one active leader for :{}, electing ...", servers);
 			elect();
 		} else {
@@ -105,10 +108,11 @@ public class Cluster {
 		Server candidate = null;
 		for (Server server : servers) {
 			server.setLeader(false);
-			if(server.isStatus()) {
+			if (server.isStatus()) {
 				if (candidate == null) {
 					candidate = server;
 				} else {
+					// 取巧：重写hashcode方法，保证相同url的节点，hashCode相同，由此不同节点计算一致
 					if (candidate.hashCode() > server.hashCode()) {
 						candidate = server;
 					}
@@ -125,8 +129,13 @@ public class Cluster {
 	}
 
 	private void updateServers() {
-		servers.forEach(server -> {
+		// 探活
+		servers.parallelStream().forEach(server -> {
 			try {
+				// 无需探活自身
+				if (MYSELF.equals(server)) {
+					return;
+				}
 				Server serverInfo = HttpInvoker.httpGet(server.getUrl() + "/info", Server.class);
 				log.debug(" ===> health check success for: {}", serverInfo);
 				if (serverInfo != null) {
@@ -161,6 +170,7 @@ public class Cluster {
 	}
 
 	public Server self() {
+		MYSELF.setVersion(CatRegistryService.VERSION.get());
 		return MYSELF;
 	}
 

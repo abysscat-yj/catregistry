@@ -61,7 +61,7 @@ public class CatRegistryController {
 	}
 
 	@RequestMapping("/version")
-	public long version(@RequestParam String service) {
+	public Long version(@RequestParam String service) {
 		log.info(" ===> version {}", service);
 		return registryService.version(service);
 	}
