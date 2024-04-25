@@ -38,7 +38,7 @@ public class CatRegistryService implements RegistryService {
 				return instance;
 			}
 		}
-		log.info(" ===> register instance {}", instance.toUrl());
+		log.info(" ===> register service :{}, instance {}", service, instance.toUrl());
 		REGISTRY.add(service, instance);
 		instance.setStatus(true);
 		VERSIONS.put(service, VERSION.incrementAndGet());
@@ -52,7 +52,7 @@ public class CatRegistryService implements RegistryService {
 		if (metas == null || metas.isEmpty()) {
 			return null;
 		}
-		log.info(" ====> unregister instance {}", instance.toUrl());
+		log.info(" ====> unregister service:{}, instance {}", service, instance.toUrl());
 		metas.remove(instance);
 		instance.setStatus(false);
 		VERSIONS.put(service, VERSION.incrementAndGet());
